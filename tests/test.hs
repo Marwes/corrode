@@ -8,7 +8,11 @@ import qualified Data.IntMap as IntMap
 import qualified Data.Map as Map
 import Data.List
 import Language.Rust.Corrode.CFG
+import System.Directory
+import System.FilePath ((</>))
+import System.Process
 import Test.Tasty
+import Test.Tasty.HUnit
 import qualified Test.Tasty.QuickCheck as QC
 import Text.PrettyPrint.HughesPJClass hiding (empty)
 
@@ -17,8 +21,35 @@ main = defaultMain tests
 
 tests :: TestTree
 tests = testGroup "Tests"
-    [ QC.testProperty "structuring CFGs conserves code" cfgStructureConservesCode
-    , QC.testProperty "CFG structuring round-trips" cfgRoundTrip
+    [ regressionTests 
+    , testGroup "Properties"
+        [ QC.testProperty "structuring CFGs conserves code" cfgStructureConservesCode
+        , QC.testProperty "CFG structuring round-trips" cfgRoundTrip
+        ]
+    ]
+
+regressionDir :: FilePath
+regressionDir = "tests" </> "regression-tests"
+
+regressionTest :: String -> TestTree 
+regressionTest name = testCase name $ do
+    callProcess "gcc" ["-o", "dist/build" </> name, regressionDir </> (name ++ ".c")]
+    cProgram <- spawnProcess ("dist/build" </> name) []
+
+    callProcess "python"
+        [ "./scripts/corrode-cc"
+        , "-o", "dist/build" </> (name ++ "-rust")
+        , regressionDir </> (name ++ ".c")
+        ]
+    rustProgram <- spawnProcess ("dist/build" </> (name ++ "-rust")) []
+    expected <- waitForProcess cProgram
+    actual <- waitForProcess rustProgram
+    expected @=? actual
+
+regressionTests :: TestTree
+regressionTests = testGroup "Regression tests"
+    [ regressionTest "clone-impl"
+    , regressionTest "no-return-main"
     ]
 
 data Stmt

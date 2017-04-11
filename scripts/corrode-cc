@@ -45,7 +45,7 @@ if '-c' in cflags:
         ).stdout.splitlines()[0]
 
         if outfile is None:
-            outfile = str(PurePath(rsfile).with_suffix(".o"))
+            outfile = str(PurePath(str(rsfile)).with_suffix(".o"))
 
         rustwarn = subprocess.run(
             ['rustc', '--crate-type=dylib', '--emit', 'obj', '-o', outfile, rsfile],
@@ -66,14 +66,26 @@ else:
         check=True,
     ).stdout.strip()
 
-    rustlibdir = sysroot + b'/lib/rustlib/x86_64-unknown-linux-gnu/lib/'
+    rustlibdir = None
 
-    needed = [b'libcompiler-rt.a'] + [
+    lists = [b"x86_64-unknown-linux-gnu",
+             b"x86_64-pc-windows-msvc", b"x86_64-pc-windows-gnu"]
+    for path in lists:
+        dir = sysroot + b'/lib/rustlib/' + path + b'/lib/'
+        if os.path.isdir(dir):
+            rustlibdir = dir
+            break
+    if rustlibdir == None:
+        raise Exception("Could not find the rust library directory")
+
+    needed = [
         b'lib' + lib + b'-*.rlib'
-        for lib in (b'core', b'std', b'collections', b'panic_unwind', b'rustc_unicode', b'unwind', b'rand', b'alloc', b'alloc_system', b'libc')
+        for lib in (b'compiler_builtins', b'core', b'std', b'collections', b'panic_unwind', b'std_unicode', b'unwind', b'rand', b'alloc', b'alloc_system', b'libc')
     ]
     alllibs = os.listdir(rustlibdir)
 
-    rustlibs = [ rustlibdir + fnmatch.filter(alllibs, pat)[0] for pat in needed ]
+    rustlibs = [(rustlibdir + fnmatch.filter(alllibs, pat)[0]).decode()
+                for pat in needed]
 
-    sys.exit(subprocess.run(['gcc'] + outflags + cflags + rustlibs + ['-lgcc_eh', '-pthread', '-lm', '-ldl']).returncode)
+    args = outflags + cflags + rustlibs + ['-lgcc_eh', '-pthread', '-lm']
+    sys.exit(subprocess.run(['gcc'] + args).returncode)
