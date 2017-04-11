@@ -29,6 +29,7 @@ install:
   - cabal install happy
   - cabal install alex
   - cabal install --verbose --enable-tests
+  - pip install pathlib
 
 script:
   - dist/build/tests/tests --quickcheck-tests 100000
