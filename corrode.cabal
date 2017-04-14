@@ -12,6 +12,7 @@ library
   hs-source-dirs:      src
   exposed-modules:     Language.Rust,
                        Language.Rust.AST,
+                       Language.Rust.Main,
                        Language.Rust.Idiomatic,
                        Language.Rust.Corrode.C,
                        Language.Rust.Corrode.CFG,
@@ -21,6 +22,7 @@ library
   build-depends:       base >=4.8,
                        array >= 0.4,
                        containers >= 0.5,
+                       filepath,
                        language-c >=0.6 && <0.7,
                        markdown-unlit,
                        pretty,

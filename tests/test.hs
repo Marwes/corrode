@@ -1,5 +1,6 @@
 import Control.Monad
 import Control.Monad.Trans.Class
+import Control.Monad.Trans.Except (runExceptT)
 import Control.Monad.Trans.State.Lazy
 import Data.Either
 import Data.Foldable
@@ -8,7 +9,7 @@ import qualified Data.IntMap as IntMap
 import qualified Data.Map as Map
 import Data.List
 import Language.Rust.Corrode.CFG
-import System.Directory
+import Language.Rust.Main (mainWithArgs)
 import System.FilePath ((</>))
 import System.Exit (ExitCode(..))
 import System.Process
@@ -32,38 +33,44 @@ tests = testGroup "Tests"
 regressionDir :: FilePath
 regressionDir = "tests" </> "regression-tests"
 
-regressionTest :: String -> TestTree 
-regressionTest name = testCase name $ do
+regressionTest :: String -> [String] -> TestTree 
+regressionTest name args = testCase name $ do
     let cName = regressionDir </> (name ++ ".c")
 
     cFileContents <- readFile cName
     let firstLine = head (lines cFileContents)
-        expectedExitInt =
+        expectedExitcode =
             if isPrefixOf "// returns " firstLine then
-                read (drop (length "// returns ") firstLine)
+                let i = read (drop (length "// returns ") firstLine)
+                in Just (if i == 0 then ExitSuccess else ExitFailure i)
             else
-                0
-        expectedExitcode = if expectedExitInt == 0 then ExitSuccess else ExitFailure expectedExitInt
+                Nothing
 
 
     callProcess "gcc" ["-o", "dist/build" </> name, cName] 
-    cProgram <- spawnProcess ("dist/build" </> name) []
+    cProgram <- spawnProcess ("dist/build" </> name) args
 
-    callProcess "python"
-        [ "./scripts/corrode-cc"
-        , "-o", "dist/build" </> (name ++ "-rust")
-        , cName
+    result <- runExceptT (mainWithArgs [ cName ])
+    case result of
+        Left err -> assertFailure err
+        Right a -> return a
+    callProcess "rustc"
+        [ "-o", "dist/build" </> (name ++ "-rust")
+        , regressionDir </> (name ++ ".rs")
         ]
-    rustProgram <- spawnProcess ("dist/build" </> (name ++ "-rust")) []
+    rustProgram <- spawnProcess ("./dist/build" </> (name ++ "-rust")) args
     expected <- waitForProcess cProgram
     actual <- waitForProcess rustProgram
-    expectedExitcode @=? expected
+    case expectedExitcode of
+        Just code -> code @=? actual
+        Nothing -> return ()
     expected @=? actual
 
 regressionTests :: TestTree
 regressionTests = testGroup "Regression tests"
-    [ regressionTest "clone-impl"
-    , regressionTest "no-return-main"
+    [ regressionTest "clone-impl" []
+    , regressionTest "no-return-main" []
+    , regressionTest "argv-utf-8" ["Å"]
     ]
 
 data Stmt

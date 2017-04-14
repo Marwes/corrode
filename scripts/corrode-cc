@@ -46,10 +46,9 @@ if '-c' in cflags:
 
         if outfile is None:
             outfile = str(PurePath(str(rsfile)).with_suffix(".o"))
-        print("-------", rsfile)
 
         rustwarn = subprocess.run(
-            ['rustc', '--crate-type=dylib', '--emit', 'obj', '-o', outfile, rsfile],
+            ['rustc', '--crate-type=dylib', '--emit', 'obj', '-o', outfile, rsfile.decode()],
             stderr=subprocess.PIPE,
             check=True,
         ).stderr
