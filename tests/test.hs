@@ -10,6 +10,7 @@ import Data.List
 import Language.Rust.Corrode.CFG
 import System.Directory
 import System.FilePath ((</>))
+import System.Exit (ExitCode(..))
 import System.Process
 import Test.Tasty
 import Test.Tasty.HUnit
@@ -33,17 +34,30 @@ regressionDir = "tests" </> "regression-tests"
 
 regressionTest :: String -> TestTree 
 regressionTest name = testCase name $ do
-    callProcess "gcc" ["-o", "dist/build" </> name, regressionDir </> (name ++ ".c")]
+    let cName = regressionDir </> (name ++ ".c")
+
+    cFileContents <- readFile cName
+    let firstLine = head (lines cFileContents)
+        expectedExitInt =
+            if isPrefixOf "// returns " firstLine then
+                read (drop (length "// returns ") firstLine)
+            else
+                0
+        expectedExitcode = if expectedExitInt == 0 then ExitSuccess else ExitFailure expectedExitInt
+
+
+    callProcess "gcc" ["-o", "dist/build" </> name, cName] 
     cProgram <- spawnProcess ("dist/build" </> name) []
 
     callProcess "python"
         [ "./scripts/corrode-cc"
         , "-o", "dist/build" </> (name ++ "-rust")
-        , regressionDir </> (name ++ ".c")
+        , cName
         ]
     rustProgram <- spawnProcess ("dist/build" </> (name ++ "-rust")) []
     expected <- waitForProcess cProgram
     actual <- waitForProcess rustProgram
+    expectedExitcode @=? expected
     expected @=? actual
 
 regressionTests :: TestTree

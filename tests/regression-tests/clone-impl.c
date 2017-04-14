@@ -1,3 +1,5 @@
+// returns 123
+
 struct Test
 {
     int x[100];
