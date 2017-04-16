@@ -1,8 +1,7 @@
 # Sudo used for custom apt setup
 sudo: true
 
-language: python
-python: "3.6"
+language: rust
 
 # Add new environments to the build here:
 env:
@@ -20,6 +19,7 @@ before_install:
   - travis_retry sudo add-apt-repository -y ppa:hvr/ghc
   - travis_retry sudo apt-get update
   - travis_retry sudo apt-get install cabal-install-$CABALVER ghc-$GHCVER
+  - travis_retry sudo apt-get install python3
   - export PATH=/opt/ghc/$GHCVER/bin:/opt/cabal/$CABALVER/bin:$PATH
   - export PATH=$HOME/.cabal/bin:$PATH
   - travis_retry cabal update
