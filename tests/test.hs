@@ -13,6 +13,8 @@ import Language.Rust.Main (mainWithArgs)
 import System.FilePath ((</>))
 import System.Exit (ExitCode(..))
 import System.Process
+import System.IO (stdout, stderr)
+import System.IO.Silently (hCapture)
 import Test.Tasty
 import Test.Tasty.HUnit
 import qualified Test.Tasty.QuickCheck as QC
@@ -46,6 +48,16 @@ regressionTest name args = testCase name $ do
             else
                 Nothing
 
+    (output, (expected, actual)) <- hCapture [stdout, stderr] (runRegressionTest name args)
+
+    case expectedExitcode of
+        Just code -> assertEqual output code actual
+        Nothing -> return ()
+    assertEqual output expected actual
+
+runRegressionTest :: String -> [String] -> IO (ExitCode, ExitCode)
+runRegressionTest name args = do
+    let cName = regressionDir </> (name ++ ".c")
 
     callProcess "gcc" ["-o", "dist/build" </> name, cName] 
     cProgram <- spawnProcess ("dist/build" </> name) args
@@ -61,10 +73,7 @@ regressionTest name args = testCase name $ do
     rustProgram <- spawnProcess ("./dist/build" </> (name ++ "-rust")) args
     expected <- waitForProcess cProgram
     actual <- waitForProcess rustProgram
-    case expectedExitcode of
-        Just code -> code @=? actual
-        Nothing -> return ()
-    expected @=? actual
+    return (expected, actual)
 
 regressionTests :: TestTree
 regressionTests = testGroup "Regression tests"
