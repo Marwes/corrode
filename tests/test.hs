@@ -92,6 +92,7 @@ regressionTests = testGroup "Regression tests"
     [ regressionTest "clone-impl" []
     , regressionTest "no-return-main" []
     , regressionTest "extern-function-definition" []
+    , regressionTest "string" []
     ]
 
 data Stmt

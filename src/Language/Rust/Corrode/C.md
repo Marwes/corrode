@@ -1296,9 +1296,17 @@ Function definitions
 
 A C function definition translates to a single Rust item.
 
+In mingw, the `__debugbreak` function is defined in a header and it uses inline assembly which
+makes it impossible to compile any code which includes that header. Since noone should call `__debugbreak` (internal function) we can simply ignore it instead.
+
 ```haskell
+ignoredFunction :: Maybe Ident -> Bool
+ignoredFunction (Just (Ident name _ _)) = name == "__debugbreak"
+ignoredFunction _ = False
+
 interpretFunction :: CFunDef -> EnvMonad s ()
-interpretFunction (CFunDef specs declr@(CDeclr mident _ _ _ _) argtypes body _) = do
+interpretFunction (CFunDef specs declr@(CDeclr mident _ _ _ _) argtypes body _) =
+    when (not (ignoredFunction mident)) $ do
 ```
 
 Determine whether the function should be visible outside this module
