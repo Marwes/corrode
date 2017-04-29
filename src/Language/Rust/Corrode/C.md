@@ -1308,6 +1308,7 @@ based on whether it is declared `static`.
     (storage, baseTy) <- baseTypeOf specs
     (attrs, vis) <- case storage of
         Nothing -> return ([Rust.Attribute "no_mangle"], Rust.Public)
+        Just (CExtern _) -> return ([Rust.Attribute "no_mangle"], Rust.Public)
         Just (CStatic _) -> return ([], Rust.Private)
         Just s -> badSource s "storage class specifier for function"
 ```
