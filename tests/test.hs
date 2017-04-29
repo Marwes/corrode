@@ -57,7 +57,10 @@ runRegressionTest :: String -> [String] -> IO (ExitCode, ExitCode, String)
 runRegressionTest name args = do
     let cName = regressionDir </> (name ++ ".c")
 
-    (_, gccStdout, gccStderr) <- readProcessWithExitCode "gcc" ["-o", "dist/build" </> name, cName] ""
+    (_, gccStdout, gccStderr) <- readProcessWithExitCode
+        "gcc"
+        ["-o", "dist/build" </> name, "--std=c99", cName]
+        ""
     (expected, cStdout, cStdErr) <- readProcessWithExitCode ("dist/build" </> name) args ""
 
     result <- runExceptT (mainWithArgs [ cName ])
