@@ -13,8 +13,6 @@ import Language.Rust.Main (mainWithArgs)
 import System.FilePath ((</>))
 import System.Exit (ExitCode(..))
 import System.Process
-import System.IO (stdout, stderr)
-import System.IO.Silently (hCapture)
 import Test.Tasty
 import Test.Tasty.HUnit
 import qualified Test.Tasty.QuickCheck as QC
@@ -48,32 +46,43 @@ regressionTest name args = testCase name $ do
             else
                 Nothing
 
-    (output, (expected, actual)) <- hCapture [stdout, stderr] (runRegressionTest name args)
+    (expected, actual, output) <- runRegressionTest name args
 
     case expectedExitcode of
         Just code -> assertEqual output code actual
         Nothing -> return ()
     assertEqual output expected actual
 
-runRegressionTest :: String -> [String] -> IO (ExitCode, ExitCode)
+runRegressionTest :: String -> [String] -> IO (ExitCode, ExitCode, String)
 runRegressionTest name args = do
     let cName = regressionDir </> (name ++ ".c")
 
-    callProcess "gcc" ["-o", "dist/build" </> name, cName] 
-    cProgram <- spawnProcess ("dist/build" </> name) args
+    (_, gccStdout, gccStderr) <- readProcessWithExitCode "gcc" ["-o", "dist/build" </> name, cName] ""
+    (expected, cStdout, cStdErr) <- readProcessWithExitCode ("dist/build" </> name) args ""
 
     result <- runExceptT (mainWithArgs [ cName ])
     case result of
         Left err -> assertFailure err
         Right a -> return a
-    callProcess "rustc"
+    (_, rustcStdout, rustcStdErr) <- readProcessWithExitCode "rustc"
         [ "-o", "dist/build" </> (name ++ "-rust")
         , regressionDir </> (name ++ ".rs")
         ]
-    rustProgram <- spawnProcess ("./dist/build" </> (name ++ "-rust")) args
-    expected <- waitForProcess cProgram
-    actual <- waitForProcess rustProgram
-    return (expected, actual)
+        ""
+    (actual, rustProgramStdout, rustProgramStdErr) <- readProcessWithExitCode
+        ("./dist/build" </> (name ++ "-rust"))
+        args
+        ""
+
+    return (
+        expected,
+        actual,
+        concat [
+            gccStdout, gccStderr,
+            cStdout, cStdErr ,
+            rustcStdout, rustcStdErr ,
+            rustProgramStdout, rustProgramStdErr
+        ])
 
 regressionTests :: TestTree
 regressionTests = testGroup "Regression tests"

@@ -52,7 +52,6 @@ test-suite tests
                      , filepath
                      , pretty
                      , process
-                     , silently
                      , tasty
                      , tasty-quickcheck
                      , tasty-hunit
